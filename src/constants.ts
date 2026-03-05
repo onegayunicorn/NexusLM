@@ -15,64 +15,64 @@ export interface CouncilMember {
 
 export const COUNCIL_MEMBERS: CouncilMember[] = [
   {
-    id: "mendel",
-    name: "Gregor Mendel",
-    archetype: "The Skeptical Analyst",
-    description: "Focused on data, ratios, and rigorous evidence.",
-    color: "bg-blue-500",
-    avatar: "https://picsum.photos/seed/mendel/200",
-    defaultVoice: "Charon",
-    settings: { pitch: 1.0, rate: 1.0, formant: 1.0 }
-  },
-  {
-    id: "carver",
-    name: "George Washington Carver",
-    archetype: "The Practical Visionary",
-    description: "Sees the potential in every seed and the soul of nature.",
-    color: "bg-emerald-500",
-    avatar: "https://picsum.photos/seed/carver/200",
-    defaultVoice: "Fenrir",
-    settings: { pitch: 1.0, rate: 1.0, formant: 1.0 }
+    id: "lovelace",
+    name: "Ada Lovelace",
+    archetype: "The Poetical Scientist",
+    description: "Ensures the UI is as beautiful as the logic is rigorous.",
+    color: "bg-pink-500",
+    avatar: "https://picsum.photos/seed/ada/200",
+    defaultVoice: "Kore",
+    settings: { pitch: 1.2, rate: 1.1, formant: 1.2 }
   },
   {
     id: "kwolek",
     name: "Stephanie Kwolek",
     archetype: "The Precision Engineer",
-    description: "Obsessed with structural integrity and material mechanics.",
+    description: "Focuses on structural integrity, materials, and mechanics.",
     color: "bg-amber-500",
     avatar: "https://picsum.photos/seed/kwolek/200",
-    defaultVoice: "Kore",
-    settings: { pitch: 1.0, rate: 1.0, formant: 1.0 }
-  },
-  {
-    id: "humboldt",
-    name: "Alexander von Humboldt",
-    archetype: "The Connector",
-    description: "Links ecology, geography, and global systems.",
-    color: "bg-purple-500",
-    avatar: "https://picsum.photos/seed/humboldt/200",
     defaultVoice: "Zephyr",
-    settings: { pitch: 1.0, rate: 1.0, formant: 1.0 }
+    settings: { pitch: 0.9, rate: 1.0, formant: 0.9 }
   },
   {
-    id: "homer",
-    name: "Homer Simpson",
-    archetype: "The Everyman Philosopher",
-    description: "Finds wisdom in donuts and simplicity in chaos.",
-    color: "bg-yellow-400",
-    avatar: "https://picsum.photos/seed/homer/200",
+    id: "davinci",
+    name: "Leonardo da Vinci",
+    archetype: "The Systemic Observer",
+    description: "Looks for fluid dynamics and systemic connections.",
+    color: "bg-emerald-500",
+    avatar: "https://picsum.photos/seed/leonardo/200",
+    defaultVoice: "Charon",
+    settings: { pitch: 0.8, rate: 0.9, formant: 0.8 }
+  },
+  {
+    id: "mendel",
+    name: "Gregor Mendel",
+    archetype: "The Skeptical Analyst",
+    description: "Ensures the platform evolves and connects disparate data points.",
+    color: "bg-blue-500",
+    avatar: "https://picsum.photos/seed/mendel/200",
     defaultVoice: "Puck",
-    settings: { pitch: 0.8, rate: 0.9, formant: 0.85 }
+    settings: { pitch: 1.0, rate: 0.8, formant: 1.0 }
   },
   {
-    id: "rick",
+    id: "aurelius",
+    name: "Marcus Aurelius",
+    archetype: "The Stoic Filter",
+    description: "Removes speculative noise and focuses on objective truth.",
+    color: "bg-stone-500",
+    avatar: "https://picsum.photos/seed/marcus/200",
+    defaultVoice: "Fenrir",
+    settings: { pitch: 0.7, rate: 0.8, formant: 0.7 }
+  },
+  {
+    id: "sanchez",
     name: "Rick Sanchez",
-    archetype: "The Nihilistic Genius",
-    description: "Science is a mess, and so is the multiverse.",
+    archetype: "The Nihilistic Reality Check",
+    description: "Ensures we aren't just over-engineering a fancy PDF reader.",
     color: "bg-cyan-400",
     avatar: "https://picsum.photos/seed/rick/200",
-    defaultVoice: "Charon",
-    settings: { pitch: 1.1, rate: 1.2, formant: 1.1 }
+    defaultVoice: "Puck",
+    settings: { pitch: 1.1, rate: 1.3, formant: 1.1 }
   }
 ];
 

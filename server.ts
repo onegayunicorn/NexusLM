@@ -8,6 +8,7 @@ import mammoth from "mammoth";
 import { GoogleGenAI, Modality } from "@google/genai";
 import dotenv from "dotenv";
 import { COUNCIL_MEMBERS } from "./src/constants";
+import { StoicFilter } from "./src/services/stoicFilter";
 
 console.log("SERVER SCRIPT STARTING...");
 
@@ -27,48 +28,51 @@ app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 // Initialize Gemini
 const genAI = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || "" });
 
-// Helper to extract text from various file types
-async function extractText(buffer: Buffer, mimetype: string): Promise<string> {
-  try {
-    if (mimetype === "application/pdf") {
-      // Handle potential variations in how pdf-parse is exported in ESM/CJS
-      let parseFunc;
-      
-      try {
-        // Try direct require
-        parseFunc = pdf;
-        if (typeof parseFunc !== 'function' && pdf && typeof pdf.default === 'function') {
-          parseFunc = pdf.default;
-        }
-      } catch (e) {
-        console.error("Initial PDF parse function resolution failed:", e);
+// Strategy Pattern for Document Ingestion
+interface IngestionStrategy {
+  extract(buffer: Buffer): Promise<string>;
+}
+
+class PDFStrategy implements IngestionStrategy {
+  async extract(buffer: Buffer): Promise<string> {
+    let parseFunc;
+    try {
+      parseFunc = pdf;
+      if (typeof parseFunc !== 'function' && pdf && typeof pdf.default === 'function') {
+        parseFunc = pdf.default;
       }
-      
-      if (typeof parseFunc !== 'function') {
-        // Log the structure to help debug
-        console.log("PDF library structure:", { 
-          type: typeof pdf, 
-          keys: pdf ? Object.keys(pdf) : 'null',
-          hasDefault: !!(pdf && pdf.default),
-          defaultType: pdf ? typeof pdf.default : 'n/a'
-        });
-        throw new Error("PDF parser initialization failed: module did not export a function");
-      }
-      
-      const data = await parseFunc(buffer);
-      return data.text || "";
-    } else if (
-      mimetype === "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-    ) {
-      const data = await mammoth.extractRawText({ buffer });
-      return data.value || "";
-    } else if (mimetype.startsWith("text/") || mimetype === "application/octet-stream") {
-      return buffer.toString("utf-8");
+    } catch (e) {
+      console.error("PDF parse function resolution failed:", e);
     }
-    return "";
-  } catch (error: any) {
-    console.error("Extraction error:", error);
-    throw new Error(`Failed to extract text: ${error.message}`);
+    
+    if (typeof parseFunc !== 'function') {
+      throw new Error("PDF parser initialization failed");
+    }
+    
+    const data = await parseFunc(buffer);
+    return data.text || "";
+  }
+}
+
+class DocxStrategy implements IngestionStrategy {
+  async extract(buffer: Buffer): Promise<string> {
+    const data = await mammoth.extractRawText({ buffer });
+    return data.value || "";
+  }
+}
+
+class TextStrategy implements IngestionStrategy {
+  async extract(buffer: Buffer): Promise<string> {
+    return buffer.toString("utf-8");
+  }
+}
+
+class DocumentIngestorFactory {
+  static getStrategy(mimetype: string): IngestionStrategy {
+    if (mimetype === "application/pdf") return new PDFStrategy();
+    if (mimetype === "application/vnd.openxmlformats-officedocument.wordprocessingml.document") return new DocxStrategy();
+    if (mimetype.startsWith("text/") || mimetype === "application/octet-stream") return new TextStrategy();
+    throw new Error(`Unsupported mimetype: ${mimetype}`);
   }
 }
 
@@ -95,9 +99,11 @@ app.post("/api/analyze", upload.single("file"), async (req: any, res: any) => {
       return res.status(400).json({ error: "No file uploaded" });
     }
 
-    const text = await extractText(req.file.buffer, req.file.mimetype);
+    const strategy = DocumentIngestorFactory.getStrategy(req.file.mimetype);
+    const text = await strategy.extract(req.file.buffer);
+    
     if (!text || text.trim().length === 0) {
-      return res.status(400).json({ error: "Could not extract any text from the provided file. Please ensure it's not empty or password protected." });
+      return res.status(400).json({ error: "Could not extract any text from the provided file." });
     }
 
     const { host1, host2 } = req.body;
@@ -109,21 +115,23 @@ app.post("/api/analyze", upload.single("file"), async (req: any, res: any) => {
     
     const prompt = `
       You are the NexusLM Dialogue Generator. 
-      Analyze the following document text and generate a podcast script between two historical figures: ${host1} and ${host2}.
+      Analyze the following document text and generate a podcast script between two members of the Analytical Triad: ${host1} and ${host2}.
       
       Council Members Profiles:
-      - Gregor Mendel: Skeptical Analyst, focused on data, ratios, and evidence.
-      - George Washington Carver: Practical Visionary, focused on sustainability, innovation, and the "soul" of nature.
-      - Stephanie Kwolek: Precision Engineer, focused on structural integrity, materials, and mechanics.
-      - Alexander von Humboldt: The Connector, focused on ecology, global systems, and interdisciplinary links.
-      - Homer Simpson: The Everyman Philosopher, finds wisdom in donuts, simplicity in chaos, and often uses "D'oh!" or "Mmm... [topic]".
-      - Rick Sanchez: The Nihilistic Genius, cynical, burping occasionally, brilliant but dismissive of "normal" logic, often uses "Wubba Lubba Dub Dub" or "Listen, Morty...".
+      - Ada Lovelace (The Poetical Scientist): Focuses on the "poetical science" of code, ensuring beauty and rigor.
+      - Stephanie Kwolek (The Precision Engineer): Focuses on structural integrity, materials, and mechanics.
+      - Leonardo da Vinci (The Systemic Observer): Looks for fluid dynamics and systemic connections.
+      - Gregor Mendel (The Skeptical Analyst): Ensures platform evolution and connects disparate data points.
+      - Marcus Aurelius (The Stoic Filter): Removes speculative noise, focusing on objective truth and INTERNAL_CONTROL vs EXTERNAL_NOISE.
+      - Rick Sanchez (The Nihilistic Reality Check): Cynical genius, flags over-engineered abstractions that add zero value.
 
-      The script should be a deep, intellectual debate/discussion about the core themes of the document.
+      ${StoicFilter.getPromptInstructions()}
+      
+      The script should be a deep, intellectual debate/discussion about the core themes of the document, filtered for actionable wisdom.
       Format the output as a JSON array of objects: [{ "speaker": "Name", "text": "...", "emotion": "..." }].
       
       Document Text:
-      ${text.substring(0, 15000)} // Limit text for prompt size
+      ${text.substring(0, 15000)}
     `;
 
     const result = await genAI.models.generateContent({

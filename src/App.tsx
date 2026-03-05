@@ -3,6 +3,7 @@ import { Sparkles, Mic2, Loader2, FileText, History, AlertCircle } from 'lucide-
 import { COUNCIL_MEMBERS, CouncilMember } from './constants';
 import { ScriptTurn } from './types';
 import { cn } from './lib/utils';
+import { PodcastService } from './services/podcastService';
 import HostSelector from './components/HostSelector';
 import DocumentUploader from './components/DocumentUploader';
 import PodcastPlayer from './components/PodcastPlayer';
@@ -38,30 +39,10 @@ export default function App() {
     formData.append('isMockMode', String(isMockMode));
 
     try {
-      const response = await fetch('/api/analyze', {
-        method: 'POST',
-        body: formData,
-      });
+      const data = await PodcastService.analyzeDocument(file, host1.name, host2.name, isMockMode);
       
-      const responseText = await response.text();
-      let data;
-      try {
-        data = JSON.parse(responseText);
-      } catch (parseErr) {
-        console.error('Failed to parse response as JSON:', responseText);
-        throw new Error(`Server returned non-JSON response: ${responseText.substring(0, 100)}...`);
-      }
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Analysis failed');
-      }
-      
-      if (data.script && Array.isArray(data.script)) {
-        setScript(data.script);
-        setCurrentTurnIndex(0);
-      } else {
-        throw new Error('Invalid script format received');
-      }
+      setScript(data.script);
+      setCurrentTurnIndex(0);
     } catch (err: any) {
       console.error('Analysis failed', err);
       setError(err.message);
@@ -84,24 +65,16 @@ export default function App() {
     if (!audioSrc) {
       setIsSynthesizing(true);
       try {
-        const response = await fetch('/api/synthesize', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            text: script[index].text,
-            speaker: script[index].speaker,
-            settings: script[index].speaker === host1.name ? host1.settings : host2.settings,
-            isMockMode
-          }),
-        });
-        
-        if (!response.ok) throw new Error('Synthesis failed');
-        
-        const data = await response.json();
-        audioSrc = `data:audio/mp3;base64,${data.audio}`;
+        audioSrc = await PodcastService.synthesizeSpeech(
+          script[index].text,
+          script[index].speaker,
+          script[index].speaker === host1.name ? host1.settings : host2.settings,
+          isMockMode
+        );
         setAudioCache(prev => ({ ...prev, [index]: audioSrc }));
-      } catch (err) {
+      } catch (err: any) {
         console.error('Synthesis failed', err);
+        setError(err.message);
         setIsPlaying(false);
         return;
       } finally {
