@@ -6,6 +6,7 @@ import { cn } from './lib/utils';
 import HostSelector from './components/HostSelector';
 import DocumentUploader from './components/DocumentUploader';
 import PodcastPlayer from './components/PodcastPlayer';
+import VoiceSettingsPanel from './components/VoiceSettingsPanel';
 
 export default function App() {
   const [file, setFile] = useState<File | null>(null);
@@ -79,7 +80,8 @@ export default function App() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             text: script[index].text,
-            speaker: script[index].speaker
+            speaker: script[index].speaker,
+            settings: script[index].speaker === host1.name ? host1.settings : host2.settings
           }),
         });
         
@@ -211,6 +213,17 @@ export default function App() {
                   excludeHost={host1.id}
                   disabled={isAnalyzing}
                 />
+
+                <div className="grid grid-cols-1 gap-4 mt-4">
+                  <VoiceSettingsPanel 
+                    host={host1} 
+                    onUpdate={(settings) => setHost1(prev => ({ ...prev, settings }))} 
+                  />
+                  <VoiceSettingsPanel 
+                    host={host2} 
+                    onUpdate={(settings) => setHost2(prev => ({ ...prev, settings }))} 
+                  />
+                </div>
 
                 <button 
                   onClick={startAnalysis}

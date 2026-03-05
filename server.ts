@@ -7,44 +7,60 @@ const pdf = require("pdf-parse");
 import mammoth from "mammoth";
 import { GoogleGenAI, Modality } from "@google/genai";
 import dotenv from "dotenv";
+import { COUNCIL_MEMBERS } from "./src/constants";
 
 dotenv.config();
 
 const app = express();
 const PORT = 3000;
-const upload = multer({ storage: multer.memoryStorage() });
+const upload = multer({ 
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 50 * 1024 * 1024 } // 50MB limit
+});
 
 app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
 // Initialize Gemini
 const genAI = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || "" });
 
 // Helper to extract text from various file types
 async function extractText(buffer: Buffer, mimetype: string): Promise<string> {
-  if (mimetype === "application/pdf") {
-    const data = await pdf(buffer);
-    return data.text;
-  } else if (
-    mimetype === "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-  ) {
-    const data = await mammoth.extractRawText({ buffer });
-    return data.value;
-  } else if (mimetype.startsWith("text/")) {
-    return buffer.toString("utf-8");
+  try {
+    if (mimetype === "application/pdf") {
+      // Handle potential variations in how pdf-parse is exported
+      const parse = typeof pdf === 'function' ? pdf : pdf.default;
+      if (typeof parse !== 'function') {
+        throw new Error("PDF parser initialization failed: pdf-parse is not a function");
+      }
+      const data = await parse(buffer);
+      return data.text || "";
+    } else if (
+      mimetype === "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    ) {
+      const data = await mammoth.extractRawText({ buffer });
+      return data.value || "";
+    } else if (mimetype.startsWith("text/") || mimetype === "application/octet-stream") {
+      return buffer.toString("utf-8");
+    }
+    return "";
+  } catch (error: any) {
+    console.error("Extraction error:", error);
+    throw new Error(`Failed to extract text: ${error.message}`);
   }
-  return "";
 }
 
 // API Routes
 app.post("/api/analyze", upload.single("file"), async (req: any, res: any) => {
+  console.log("Received analysis request for file:", req.file?.originalname);
   try {
     if (!req.file) {
       return res.status(400).json({ error: "No file uploaded" });
     }
 
     const text = await extractText(req.file.buffer, req.file.mimetype);
-    if (!text) {
-      return res.status(400).json({ error: "Could not extract text from file" });
+    if (!text || text.trim().length === 0) {
+      return res.status(400).json({ error: "Could not extract any text from the provided file. Please ensure it's not empty or password protected." });
     }
 
     const { host1, host2 } = req.body;
@@ -60,6 +76,8 @@ app.post("/api/analyze", upload.single("file"), async (req: any, res: any) => {
       - George Washington Carver: Practical Visionary, focused on sustainability, innovation, and the "soul" of nature.
       - Stephanie Kwolek: Precision Engineer, focused on structural integrity, materials, and mechanics.
       - Alexander von Humboldt: The Connector, focused on ecology, global systems, and interdisciplinary links.
+      - Homer Simpson: The Everyman Philosopher, finds wisdom in donuts, simplicity in chaos, and often uses "D'oh!" or "Mmm... [topic]".
+      - Rick Sanchez: The Nihilistic Genius, cynical, burping occasionally, brilliant but dismissive of "normal" logic, often uses "Wubba Lubba Dub Dub" or "Listen, Morty...".
 
       The script should be a deep, intellectual debate/discussion about the core themes of the document.
       Format the output as a JSON array of objects: [{ "speaker": "Name", "text": "...", "emotion": "..." }].
@@ -86,22 +104,26 @@ app.post("/api/analyze", upload.single("file"), async (req: any, res: any) => {
 
 app.post("/api/synthesize", async (req, res) => {
   try {
-    const { text, speaker } = req.body;
+    const { text, speaker, settings } = req.body;
     
-    // Map speakers to Gemini TTS voices
-    // 'Puck', 'Charon', 'Kore', 'Fenrir', 'Zephyr'
-    const voiceMap: Record<string, string> = {
-      "Gregor Mendel": "Charon",
-      "George Washington Carver": "Fenrir",
-      "Stephanie Kwolek": "Kore",
-      "Alexander von Humboldt": "Zephyr",
-    };
+    const member = COUNCIL_MEMBERS.find(m => m.name === speaker);
+    const voiceName = member?.defaultVoice || "Puck";
 
-    const voiceName = voiceMap[speaker] || "Puck";
+    // Since prebuiltVoiceConfig doesn't support pitch/rate directly,
+    // we use the prompt to influence the character's voice style.
+    const pitchDesc = settings.pitch > 1.2 ? "high-pitched" : settings.pitch < 0.8 ? "deep, low-pitched" : "natural pitch";
+    const rateDesc = settings.rate > 1.2 ? "fast-paced" : settings.rate < 0.8 ? "slow and deliberate" : "normal speed";
+    const formantDesc = settings.formant > 1.1 ? "bright and sharp" : settings.formant < 0.9 ? "warm and resonant" : "";
+
+    const prompt = `
+      Speak the following text as ${speaker}. 
+      Voice Style: ${pitchDesc}, ${rateDesc}, ${formantDesc}.
+      Text: ${text}
+    `;
 
     const response = await genAI.models.generateContent({
       model: "gemini-2.5-flash-preview-tts",
-      contents: [{ parts: [{ text }] }],
+      contents: [{ parts: [{ text: prompt }] }],
       config: {
         responseModalities: [Modality.AUDIO],
         speechConfig: {
