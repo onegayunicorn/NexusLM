@@ -74,8 +74,23 @@ async function extractText(buffer: Buffer, mimetype: string): Promise<string> {
 
 // API Routes
 app.post("/api/analyze", upload.single("file"), async (req: any, res: any) => {
-  console.log("Received analysis request for file:", req.file?.originalname);
+  console.log("Received analysis request. Mock Mode:", req.body?.isMockMode);
   try {
+    const isMockMode = req.body?.isMockMode === 'true';
+
+    if (isMockMode) {
+      // Simulate delay
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      return res.json({
+        script: [
+          { speaker: req.body.host1, text: "Welcome to the NexusLM Mock Session. We are testing the pipeline.", emotion: "neutral" },
+          { speaker: req.body.host2, text: "Indeed. This allows us to verify the UI transitions without hitting the real AI models.", emotion: "intellectual" },
+          { speaker: req.body.host1, text: "The document ingestion seems to be working perfectly in this simulation.", emotion: "excited" }
+        ],
+        text: "This is mock document text for testing purposes."
+      });
+    }
+
     if (!req.file) {
       return res.status(400).json({ error: "No file uploaded" });
     }

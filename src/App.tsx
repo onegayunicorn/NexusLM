@@ -19,6 +19,7 @@ export default function App() {
   const [audioCache, setAudioCache] = useState<Record<number, string>>({});
   const [isSynthesizing, setIsSynthesizing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isMockMode, setIsMockMode] = useState(false);
   
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
@@ -34,6 +35,7 @@ export default function App() {
     formData.append('file', file);
     formData.append('host1', host1.name);
     formData.append('host2', host2.name);
+    formData.append('isMockMode', String(isMockMode));
 
     try {
       const response = await fetch('/api/analyze', {
@@ -88,7 +90,8 @@ export default function App() {
           body: JSON.stringify({
             text: script[index].text,
             speaker: script[index].speaker,
-            settings: script[index].speaker === host1.name ? host1.settings : host2.settings
+            settings: script[index].speaker === host1.name ? host1.settings : host2.settings,
+            isMockMode
           }),
         });
         
@@ -176,6 +179,21 @@ export default function App() {
             <h1 className="text-2xl font-bold tracking-tighter">NEXUS<span className="text-emerald-500">LM</span></h1>
           </div>
           <nav className="hidden md:flex items-center gap-8 text-sm font-medium text-zinc-400">
+            <div className="flex items-center gap-2 bg-zinc-900/50 px-3 py-1.5 rounded-full border border-zinc-800">
+              <span className="text-[10px] uppercase tracking-wider font-bold">Mock Mode</span>
+              <button 
+                onClick={() => setIsMockMode(!isMockMode)}
+                className={cn(
+                  "w-8 h-4 rounded-full transition-colors relative",
+                  isMockMode ? "bg-emerald-500" : "bg-zinc-700"
+                )}
+              >
+                <div className={cn(
+                  "absolute top-0.5 w-3 h-3 bg-white rounded-full transition-all",
+                  isMockMode ? "left-4.5" : "left-0.5"
+                )} />
+              </button>
+            </div>
             <button className="hover:text-white transition-colors">Library</button>
             <button className="hover:text-white transition-colors">Council</button>
             <button className="hover:text-white transition-colors">Settings</button>
