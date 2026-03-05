@@ -1,0 +1,7 @@
+{
+  "name": "NexusLM",
+  "description": "A living library where documents become dynamic dialogues between historical great minds, powered by Gemini AI.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}
