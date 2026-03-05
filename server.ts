@@ -9,10 +9,13 @@ import { GoogleGenAI, Modality } from "@google/genai";
 import dotenv from "dotenv";
 import { COUNCIL_MEMBERS } from "./src/constants";
 
+console.log("SERVER SCRIPT STARTING...");
+
 dotenv.config();
 
 const app = express();
 const PORT = 3000;
+console.log("PORT SET TO:", PORT);
 const upload = multer({ 
   storage: multer.memoryStorage(),
   limits: { fileSize: 50 * 1024 * 1024 } // 50MB limit
@@ -64,6 +67,9 @@ app.post("/api/analyze", upload.single("file"), async (req: any, res: any) => {
     }
 
     const { host1, host2 } = req.body;
+    if (!host1 || !host2) {
+      return res.status(400).json({ error: "Missing host parameters" });
+    }
 
     const model = "gemini-3.1-pro-preview";
     
@@ -98,11 +104,12 @@ app.post("/api/analyze", upload.single("file"), async (req: any, res: any) => {
     res.json({ script, text: text.substring(0, 5000) });
   } catch (error: any) {
     console.error("Analysis error:", error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: error.message || "Internal Server Error during analysis" });
   }
 });
 
 app.post("/api/synthesize", async (req, res) => {
+  console.log("Received synthesis request for speaker:", req.body?.speaker);
   try {
     const { text, speaker, settings } = req.body;
     
@@ -138,8 +145,17 @@ app.post("/api/synthesize", async (req, res) => {
     res.json({ audio: base64Audio });
   } catch (error: any) {
     console.error("Synthesis error:", error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: error.message || "Internal Server Error during synthesis" });
   }
+});
+
+// Global error handler for multer and other middleware
+app.use((err: any, req: any, res: any, next: any) => {
+  console.error("Global Server Error:", err);
+  if (res.headersSent) {
+    return next(err);
+  }
+  res.status(500).json({ error: err.message || "Internal Server Error" });
 });
 
 async function startServer() {
@@ -158,4 +174,7 @@ async function startServer() {
   });
 }
 
-startServer();
+startServer().catch(err => {
+  console.error("FAILED TO START SERVER:", err);
+  process.exit(1);
+});

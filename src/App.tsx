@@ -41,12 +41,19 @@ export default function App() {
         body: formData,
       });
       
+      const responseText = await response.text();
+      let data;
+      try {
+        data = JSON.parse(responseText);
+      } catch (parseErr) {
+        console.error('Failed to parse response as JSON:', responseText);
+        throw new Error(`Server returned non-JSON response: ${responseText.substring(0, 100)}...`);
+      }
+
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Analysis failed');
+        throw new Error(data.error || 'Analysis failed');
       }
       
-      const data = await response.json();
       if (data.script && Array.isArray(data.script)) {
         setScript(data.script);
         setCurrentTurnIndex(0);
