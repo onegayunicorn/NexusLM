@@ -3,7 +3,7 @@ import { createServer as createViteServer } from "vite";
 import multer from "multer";
 import { createRequire } from "module";
 const require = createRequire(import.meta.url);
-const pdf = require("pdf-parse");
+const pdf = require("pdf-parse/lib/pdf-parse.js");
 import mammoth from "mammoth";
 import { GoogleGenAI, Modality } from "@google/genai";
 import dotenv from "dotenv";
@@ -31,12 +31,31 @@ const genAI = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || "" });
 async function extractText(buffer: Buffer, mimetype: string): Promise<string> {
   try {
     if (mimetype === "application/pdf") {
-      // Handle potential variations in how pdf-parse is exported
-      const parse = typeof pdf === 'function' ? pdf : pdf.default;
-      if (typeof parse !== 'function') {
-        throw new Error("PDF parser initialization failed: pdf-parse is not a function");
+      // Handle potential variations in how pdf-parse is exported in ESM/CJS
+      let parseFunc;
+      
+      try {
+        // Try direct require
+        parseFunc = pdf;
+        if (typeof parseFunc !== 'function' && pdf && typeof pdf.default === 'function') {
+          parseFunc = pdf.default;
+        }
+      } catch (e) {
+        console.error("Initial PDF parse function resolution failed:", e);
       }
-      const data = await parse(buffer);
+      
+      if (typeof parseFunc !== 'function') {
+        // Log the structure to help debug
+        console.log("PDF library structure:", { 
+          type: typeof pdf, 
+          keys: pdf ? Object.keys(pdf) : 'null',
+          hasDefault: !!(pdf && pdf.default),
+          defaultType: pdf ? typeof pdf.default : 'n/a'
+        });
+        throw new Error("PDF parser initialization failed: module did not export a function");
+      }
+      
+      const data = await parseFunc(buffer);
       return data.text || "";
     } else if (
       mimetype === "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
